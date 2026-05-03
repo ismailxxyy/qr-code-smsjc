@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SMSJC 4 QR Generator</title>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  background: linear-gradient(135deg, #e3f2fd, #fce4ec);
+}
+
+.container {
+  max-width: 520px;
+  margin: 30px auto;
+  background: #fff;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+  text-align: center;
+}
+
+input, button, select {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border-radius: 10px;
+  font-size: 16px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+canvas {
+  display: block;
+  margin: 20px auto;
+  transition: 0.3s;
+}
+
+.preview-type {
+  margin-top: 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.footer {
+  margin-top: 15px;
+  font-size: 12px;
+  color: #888;
+}
+
+/* 🎨 Frame styles */
+.frame-none { }
+.frame-simple { border: 8px solid #000; padding: 10px; }
+.frame-rounded { border: 8px solid #000; padding: 10px; border-radius: 20px; }
+.frame-glow { box-shadow: 0 0 20px rgba(0,0,0,0.3); padding: 10px; border-radius: 15px; }
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>SMSJC 4 QR Code Generator Pro++</h2>
+
+  <input type="text" id="text" placeholder="ใส่ URL / ข้อความ / เบอร์โทร">
+
+  <input type="file" id="logoInput" accept="image/*">
+
+  <!-- 🎨 สี -->
+  <label>เลือกสี QR</label>
+  <input type="color" id="qrColor" value="#000000">
+
+  <!-- 📏 ขนาด -->
+  <label>ขนาด QR</label>
+  <input type="range" id="qrSize" min="200" max="500" value="320">
+
+  <!-- 🖼️ กรอบ -->
+  <label>กรอบ</label>
+  <select id="frameStyle">
+    <option value="none">ไม่มี</option>
+    <option value="simple">ขอบดำ</option>
+    <option value="rounded">ขอบโค้ง</option>
+    <option value="glow">เงา</option>
+  </select>
+
+  <div class="row">
+    <button onclick="generateQR()">สร้าง QR</button>
+    <button onclick="downloadQR()">ดาวน์โหลด</button>
+  </div>
+
+  <div class="preview-type" id="type"></div>
+
+  <div id="canvasWrapper">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="footer">
+    Powered By __Samut Sakhon Juvenile and Family Court__ @2026
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+// auto update
+["text","qrColor","qrSize","frameStyle","logoInput"].forEach(id => {
+  document.getElementById(id).addEventListener("input", generateQR);
+});
+
+document.getElementById("text").addEventListener("input", detectType);
+
+function detectType() {
+  const text = document.getElementById("text").value.trim();
+  let type = "ข้อความทั่วไป";
+
+  if (text.startsWith("http")) type = "🌐 URL";
+  else if (/^\\d+$/.test(text)) type = "📞 เบอร์โทร";
+  else if (text.startsWith("WIFI:")) type = "📶 WiFi";
+
+  document.getElementById("type").innerText = "ประเภท: " + type;
+}
+
+function generateQR() {
+  const text = document.getElementById("text").value.trim();
+  if (!text) return;
+
+  const color = document.getElementById("qrColor").value;
+  const size = parseInt(document.getElementById("qrSize").value);
+
+  QRCode.toCanvas(canvas, text, {
+    width: size,
+    margin: 2,
+    errorCorrectionLevel: 'H',
+    color: {
+      dark: color,
+      light: "#ffffff"
+    }
+  }, function (err) {
+    if (err) return console.error(err);
+
+    applyFrame();
+    drawLogo();
+  });
+}
+
+function applyFrame() {
+  const wrapper = document.getElementById("canvasWrapper");
+  wrapper.className = "";
+
+  const style = document.getElementById("frameStyle").value;
+  if (style !== "none") {
+    wrapper.classList.add("frame-" + style);
+  }
+}
+
+function drawLogo() {
+  let file = document.getElementById("logoInput").files[0];
+  let img = new Image();
+
+  if (!file) {
+    img.src = "smsjc.png";
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => img.src = e.target.result;
+    reader.readAsDataURL(file);
+  }
+
+  img.onload = function() {
+    const size = canvas.width * 0.35;
+    const x = (canvas.width - size) / 2;
+    const y = (canvas.height - size) / 2;
+
+    ctx.save();
+
+    ctx.shadowColor = "rgba(0,0,0,0.25)";
+    ctx.shadowBlur = 10;
+
+    ctx.beginPath();
+    ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+
+    ctx.drawImage(img, x, y, size, size);
+
+    ctx.restore();
+  };
+
+  img.onerror = () => console.warn("โหลดรูปไม่สำเร็จ");
+}
+
+function downloadQR() {
+  try {
+    const link = document.createElement("a");
+    link.download = "qr-code.png";
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+  } catch (e) {
+    alert("ดาวน์โหลดไม่สำเร็จ");
+  }
+}
+</script>
+
+</body>
+</html>
